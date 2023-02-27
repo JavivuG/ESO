@@ -42,11 +42,12 @@ int main(int argc, char *argv[]) {
   tamanyo = strlen(linea);
 
   for (int i = 0; i < (tamanyo - 1); i++) {
-    if (i < (tamanyo - 1) && linea[i] == linea[i + 1]) {
+    if (linea[i] == linea[i + 1]) {
       contador++;
     } else {
+      contador = 38;
       fwrite(&contador, sizeof(int), 1, stdout);
-      fwrite(&linea[i], sizeof(char), 1, stdout);
+      printf("%c", linea[i]);
       contador = 1;
     }
   }
