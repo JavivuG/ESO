@@ -2,57 +2,54 @@
 #include <stdlib.h>
 #include <string.h>
 
-#define NARG 2
-
 int main(int argc, char *argv[]) {
   FILE *fin;
-  int contador = 1;
-  int tamanyo;
-  char *linea;
-  long size;
+  int tamanyo, contador = 1, numFicheros = 1;
+  size_t size = 0;
+  char *linea = NULL;
+  char caracter;
 
-  if ((fin = fopen(argv[1], "r")) == NULL) {
-    fprintf(stdout, "No se pudo abrir el fichero de entrada\n");
+  if (argc < 2) {
+    fprintf(stdout, "UVazip: file1 [file2 ...]\n");
     exit(1);
   }
 
-  if ((size = fseek(fin, 0L, SEEK_END)) != 0) { // Si no hay error devuelve
-    fprintf(stdout, "No puedo ir al final del fichero de entrada\n");
-    exit(1);
-  }
-
-  size = ftell(fin);
-
-  if ((linea = (char *)malloc(size * sizeof(char))) == NULL) {
-    fprintf(stdout, "No se pudo reservar memoria\n");
-    fclose(fin);
-    exit(1);
-  }
-
-  rewind(fin);
-
-  if (fread(linea, size, 1, fin) != 1) {
-    fprintf(stdout, "No se pudo leer todo el archivo\n");
-    fclose(fin);
-    exit(1);
-  }
-
-  fclose(fin);
-
-  tamanyo = strlen(linea);
-
-  for (int i = 0; i < (tamanyo - 1); i++) {
-    if (linea[i] == linea[i + 1]) {
-      contador++;
-    } else {
-      contador = 38;
-      fwrite(&contador, sizeof(int), 1, stdout);
-      printf("%c", linea[i]);
-      contador = 1;
+  while (numFicheros < argc) {
+    if ((fin = fopen(argv[numFicheros], "r")) == NULL) {
+      fprintf(stdout, "UVazip: Cannot open file\n");
+      exit(1);
     }
-  }
-  fwrite(&contador, sizeof(int), 1, stdout);
 
+    while ((tamanyo = getline(&linea, &size, fin)) != -1) {
+      
+      for (int i = 0; i < tamanyo; i++) {
+        if (linea[i] == linea[i + 1]) {
+          contador++;
+        } 
+        else {
+          if (argc==2){ // Si solo hay un fichero
+            fwrite(&contador, sizeof(int), 1, stdout);
+            fwrite(&linea[i], sizeof(char), 1, stdout);
+            contador=1;
+          }
+          else {
+            if (i!=(tamanyo-1)){
+              fwrite(&contador, sizeof(int), 1, stdout);
+              fwrite(&linea[i], sizeof(char), 1, stdout);
+              contador=1;
+            }
+            else {
+              caracter=linea[i];
+            }
+          }
+        }
+      }
+    }
+
+    numFicheros++;
+    fclose(fin);
+  }
   free(linea);
-  exit(0);
+
+  return 0;
 }
