@@ -6,18 +6,21 @@
 #include <stdbool.h>
 #include <string.h>
 #include <unistd.h>
+#include <sys/wait.h>
 
 #define PROMPT "UVash> "
 
 void mensajeDeError();
 void quitarSalto(char *palabra);
+void cuentaArgumentos(char *linea, int *nargs);
 
 int main (int argc, char *argv[]){
+  int pid, estado;
   char *linea;
   size_t size;
   int contador, nargs;
-  bool modoBatch=false;
-  char *token, *comando;
+  bool modoBatch=false, sigue=true;
+  char *token;
   char **argumentos;
 
   if (argc==3){
@@ -28,76 +31,89 @@ int main (int argc, char *argv[]){
     exit(1);
   }
   
-  while(true){
-    nargs=0;
+  while(sigue){
+    nargs=0; // Reseteo las variables
     contador=0;
+
     write(1,PROMPT,strlen(PROMPT));
     
     getline(&linea, &size, stdin);
 
     // Cuento el numero de argumentos que se introducen sin contar el propio comando
-    for (int i=0; i<strlen(linea); i++){
-      if (linea[i]==' ' && linea[i+1]!=' '){
-        nargs++; // Si se introduce cat fichero1 fichero2 (nargs sera 2)
-      }
-    }
+    cuentaArgumentos(linea, &nargs);
 
-    // Reservo memoria para los argumentos
-    if ((argumentos=(char**)malloc(sizeof(char*)*nargs))==NULL){
+    // Reservo memoria para los argumentos y el comando
+    if ((argumentos=(char**)malloc(sizeof(char*)*(nargs+1)))==NULL){
       mensajeDeError();
       exit(1);
     } 
 
     // Tokenizo los argumentos del comando
     while((token=strsep(&linea," "))!=NULL){
-      if (contador==0){
-        if ((comando=(char*)malloc(sizeof(char)*strlen(token)))==NULL){
-          mensajeDeError();
-          exit(1);
-        }
-        strcpy(comando, token);
-        quitarSalto(comando);
+      // Reservo memoria dinamica para cada posicion
+      if ((argumentos[contador]=(char*)malloc(sizeof(char)*strlen(token)))==NULL){
+        mensajeDeError();
+        exit(1);
       }
-      else {
-        if ((argumentos[contador-1]=(char*)malloc(sizeof(char)*strlen(token)))==NULL){
-          mensajeDeError();
-          exit(1);
-        }
-        strcpy(argumentos[contador-1], token);
-      }
+
+      strcpy(argumentos[contador],token);
       contador++;
     } // Fin bucle de tokenizacion
 
+    // Quito saltos de linea de los comandos
+    if (nargs==0){
+      quitarSalto(argumentos[0]);
+    }
+    else {
+      quitarSalto(argumentos[nargs]);
+    }
+
     // COMANDOS BUILT-IN
-    if (strcmp(comando, "exit")==0){
+    if (strcmp(argumentos[0], "exit")==0){
       if (nargs==0){
-        exit(0);
+        sigue=false;
       }
       else{ // Si tiene 1 o mas argumentos error
         mensajeDeError();  
       }
     }
-    else if (strcmp(comando, "cd")==0) {
+    else if (strcmp(argumentos[0], "cd")==0) {
       if (nargs==0 || nargs>1) { // Si tiene 0 o mas de 1 argumento
         mensajeDeError();
       }
       else {
-        if(chdir(argumentos[0])==-1){ // Si ha surgido un error en la llamada a chdir
+        if(chdir(argumentos[1])==-1){ // Si ha surgido un error en la llamada a chdir
           mensajeDeError();
         }
       }
     }
-    
-    for (int i=0; i<nargs; i++){
-      free(argumentos[i]);
+    else { // Si no es ningun metodo BUILT-IN 
+      pid = fork();
+
+      if (pid==-1){ // Error al crear proceso hijo
+        mensajeDeError();
+      }
+      else if (pid==0) { // PROCESO HIJO
+			  if((estado=execvp(argumentos[0], argumentos))==-1){
+				  mensajeDeError();
+          exit(1);
+			  }
+
+      } // Fin del proceso hijo
+      else { // PROCESO PADRE
+        wait(NULL);
+        for (int i=0; i<(nargs+1); i++){
+          free(argumentos[i]);
+        }
+        free(argumentos);
+        free(linea); 
+
+      }
     }
-    free(argumentos);
-    free(comando);
-    free(linea);
   } // Fin del bucle de sigue del programa principal
 
 
-  return 0;
+  exit(0);
 }
 
 void mensajeDeError(){
@@ -109,5 +125,13 @@ void quitarSalto(char *palabra){
   int longitud = strlen(palabra);
   if (longitud > 0 && palabra[longitud - 1] == '\n') {
     palabra[longitud - 1] = '\0';
+  }
+}
+
+void cuentaArgumentos(char *linea, int *nargs){
+  for (int i=0; i<strlen(linea); i++){
+    if (linea[i]==' ' && linea[i+1]!=' '){
+      (*nargs)=(*nargs)+1; // Si se introduce cat fichero1 fichero2 (nargs sera 2)
+    }
   }
 }
