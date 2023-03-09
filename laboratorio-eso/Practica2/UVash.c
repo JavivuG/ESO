@@ -22,11 +22,15 @@ int main (int argc, char *argv[]){
   bool modoBatch=false, sigue=true;
   char *token;
   char **argumentos;
+  FILE *fin;
 
-  if (argc==3){
+  if (argc==2){
     modoBatch=true;
+    if ((fin=fopen(argv[1], "r"))==NULL){
+      mensajeDeError();
+    }
   }
-  else if (argc > 3) { // Si se indica mas de un fichero para el modo batch
+  else if (argc > 2) { // Si se indica mas de un fichero para el modo batch
     mensajeDeError();
     exit(1);
   }
@@ -35,9 +39,22 @@ int main (int argc, char *argv[]){
     nargs=0; // Reseteo las variables
     contador=0;
 
-    write(1,PROMPT,strlen(PROMPT));
-    
-    getline(&linea, &size, stdin);
+    if (modoBatch){
+      getline(&linea, &size, fin);
+      if(!feof(fin)){
+        write(1,PROMPT,strlen(PROMPT));
+        printf("%s", linea);
+      }
+      else if (feof(fin)) {
+        free(linea);
+        fclose(fin);
+        exit(0);
+      }
+    }
+    else{ // Cuando esta en modo interactivo
+      write(1,PROMPT,strlen(PROMPT));
+      getline(&linea, &size, stdin);
+    }
 
     // Cuento el numero de argumentos que se introducen sin contar el propio comando
     cuentaArgumentos(linea, &nargs);
@@ -107,11 +124,9 @@ int main (int argc, char *argv[]){
         }
         free(argumentos);
         free(linea); 
-
       }
     }
   } // Fin del bucle de sigue del programa principal
-
 
   exit(0);
 }

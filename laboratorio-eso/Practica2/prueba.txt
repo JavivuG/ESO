@@ -1,0 +1,8 @@
+ls -al
+cd /home/javivu/
+ls -l
+cd /home/javivu/Descargas/
+ls -al
+cd /home/javivu/Escritorio/LenguajeC/
+ls -l
+exit
