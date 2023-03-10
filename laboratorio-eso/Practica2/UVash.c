@@ -13,16 +13,18 @@
 void mensajeDeError();
 void quitarSalto(char *palabra);
 void cuentaArgumentos(char *linea, int *nargs);
+void compruebaRedirreccion(char *linea, bool *redirreccion);
 
 int main (int argc, char *argv[]){
   int pid, estado;
   char *linea;
   size_t size;
   int contador, nargs;
-  bool modoBatch=false, sigue=true;
+  bool modoBatch=false, sigue=true, redirreccion=false;
   char *token;
   char **argumentos;
-  FILE *fin;
+  FILE *fin; // Fichero de entrada modo interactivo
+  FILE *fout; // Fichero de salida si hay redirreccion
 
   if (argc==2){
     modoBatch=true;
@@ -53,14 +55,14 @@ int main (int argc, char *argv[]){
     }
     else{ // Cuando esta en modo interactivo
       write(1,PROMPT,strlen(PROMPT));
+
       getline(&linea, &size, stdin);
     }
 
-    // Cuento el numero de argumentos que se introducen sin contar el propio comando
     cuentaArgumentos(linea, &nargs);
 
     // Reservo memoria para los argumentos y el comando
-    if ((argumentos=(char**)malloc(sizeof(char*)*(nargs+1)))==NULL){
+    if ((argumentos=(char**)malloc(sizeof(char*)*(nargs+2)))==NULL){
       mensajeDeError();
       exit(1);
     } 
@@ -84,6 +86,9 @@ int main (int argc, char *argv[]){
     else {
       quitarSalto(argumentos[nargs]);
     }
+
+    argumentos[nargs+1]=NULL;
+    
 
     // COMANDOS BUILT-IN
     if (strcmp(argumentos[0], "exit")==0){
@@ -147,6 +152,14 @@ void cuentaArgumentos(char *linea, int *nargs){
   for (int i=0; i<strlen(linea); i++){
     if (linea[i]==' ' && linea[i+1]!=' '){
       (*nargs)=(*nargs)+1; // Si se introduce cat fichero1 fichero2 (nargs sera 2)
+    }
+  }
+}
+
+void compruebaRedirreccion(char *linea, bool *redirreccion){
+  for (int i=0; i<strlen(linea); i++){
+    if (linea[i]=='>'){
+      *redirreccion=true;
     }
   }
 }
