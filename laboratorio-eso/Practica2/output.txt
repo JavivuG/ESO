@@ -1,12 +1,14 @@
-output.10
-output.12
-output.9
-output.txt
-prueba2.txt
-prueba.txt
-README.md
-tests
-tests-out
-test-UVash.sh
-UVash
-UVash.c
+total 64
+-rw-r--r-- 1 javivu javivu     0 mar 12 23:09 output.10
+-rw-r--r-- 1 javivu javivu     0 mar 12 23:09 output.12
+-rw-r--r-- 1 javivu javivu     0 mar 12 23:09 output.9
+-rw-r--r-- 1 javivu javivu     0 mar 12 23:14 output.txt
+-rw-r--r-- 1 javivu javivu    10 mar 10 21:56 prueba2.txt
+-rw-r--r-- 1 javivu javivu   138 mar 10 15:04 prueba.txt
+-rw-r--r-- 1 javivu javivu 11879 feb 26 23:54 README.md
+-rw-r--r-- 1 javivu javivu   735 mar 12 23:13 salida.txt
+drwxr-xr-x 3 javivu javivu  4096 feb 26 23:54 tests
+drwxr-xr-x 2 javivu javivu  4096 mar 10 17:08 tests-out
+-rwxr-xr-x 1 javivu javivu   126 feb 26 23:54 test-UVash.sh
+-rwxr-xr-x 1 javivu javivu 16664 mar 12 23:11 UVash
+-rw-r--r-- 1 javivu javivu  6376 mar 12 23:11 UVash.c

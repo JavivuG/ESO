@@ -8,23 +8,22 @@
 #include <sys/wait.h>
 
 #define PROMPT "UVash> "
-#define MAXARGS 512
+#define MAXARGS 256
 
 void mensajeDeError();
 void quitarSalto(char *palabra);
 void formateaLinea(char *linea);
 void borraEspaciosExtra(char *cadena);
-void ejecutaComandos(char **argumentos, int nargs, bool *sigue, bool redireccion,FILE *fout, char *linea);
-void liberaMemoriaDinamica(char **argumentos, char *linea, int nargs);
+void ejecutaComandos(char **argumentos, int nargs, bool *sigue, bool redireccion, FILE *fout);
+void compruebaComandoParalelo(char *cadena, bool *ejecutar);
 
 int main (int argc, char *argv[]){
-  int indiceRedireccion;
-  char *linea, *token;
+  int contador=0, nargs=0, indiceRedireccion=-2;
+  char *linea, *token, *tokenParalelo;
   char redirec[]=">";
   char **argumentos;
   size_t size;
-  int contador, nargs;
-  bool modoBatch=false, sigue=true, redireccion, ejecutar;
+  bool modoBatch=false, sigue=true, redireccion=false, ejecutar=true;
   FILE *fin; // Fichero de entrada modo interactivo
   FILE *fout; // Fichero de salida si hay redirreccion
 
@@ -41,13 +40,7 @@ int main (int argc, char *argv[]){
   }
   
   while(sigue){
-    nargs=0; // Reseteo las variables
-    contador=0;
-    redireccion=false;
-    ejecutar=true;
-    indiceRedireccion=-2;
-
-    if (modoBatch){ // Cuando esta en modo bath
+    if (modoBatch){ // Cuando esta en modo batch
       getline(&linea, &size, fin);
       if (feof(fin)) {
         free(linea);
@@ -62,7 +55,8 @@ int main (int argc, char *argv[]){
     }
 
     formateaLinea(linea);
-    if (strcmp(linea,"")==0){
+
+    if (strcmp(linea,"")==0){ // Si introduce una cadena de solo espacios
       ejecutar=false;
     }
 
@@ -71,64 +65,79 @@ int main (int argc, char *argv[]){
       mensajeDeError();
       exit(1);
     } 
-
-    // Tokenizo los argumentos del comando
-    while((token=strsep(&linea," "))!=NULL){
-      if (strcmp(token,redirec)!=0){ // Si no es el simbolo de redireccion
-        if (contador==(indiceRedireccion+1)){ // Si es el fichero de salida
-          if ((fout=fopen(token, "w"))==NULL){
-            mensajeDeError();
-          }  
-          redireccion=true;
+    
+    while((tokenParalelo=strsep(&linea,"&"))!=NULL){
+      formateaLinea(tokenParalelo);
+      
+        // Tokenizo los argumentos del comando
+      while((token=strsep(&tokenParalelo," "))!=NULL){
+        if (strcmp(token,redirec)!=0){ // Si no es el simbolo de redireccion
+          if (contador==(indiceRedireccion+1)){ // Si es el fichero de salida
+            if ((fout=fopen(token, "w"))==NULL){
+              mensajeDeError();
+            }  
+            redireccion=true;
+          }
+          else {
+            if (redireccion){ // Si hay mas de un fichero de redireccion
+              mensajeDeError();
+              ejecutar=false;
+            }
+            else {
+              // Reservo memoria dinamica para cada posicion
+              if ((argumentos[nargs]=(char*)malloc(sizeof(char)*strlen(token)))==NULL){
+                mensajeDeError();
+                exit(1);
+              }
+              strcpy(argumentos[nargs],token);
+              nargs++;
+            }
+          }
         }
-        else {
-          if (redireccion){ // Si hay mas de un fichero de redireccion
+        else { // Si es el simbolo de redireccion o el fichero
+          indiceRedireccion=contador;
+          if (redireccion || contador==0){
             mensajeDeError();
             ejecutar=false;
           }
-          else {
-            // Reservo memoria dinamica para cada posicion
-            if ((argumentos[nargs]=(char*)malloc(sizeof(char)*strlen(token)))==NULL){
-              mensajeDeError();
-              exit(1);
-            }
-            strcpy(argumentos[nargs],token);
-            nargs++;
-          }
         }
+        contador++;
+      } // Fin bucle de tokenizacion
+
+      nargs--;
+
+      if (indiceRedireccion==(contador-1) && !redireccion){  // Si hay redireccion pero no se ha especificado archivo
+        mensajeDeError();
+        ejecutar=false;
       }
-      else { // Si es el simbolo de redireccion o el fichero
-        indiceRedireccion=contador;
-        if (redireccion || contador==0){
-          mensajeDeError();
-          ejecutar=false;
-        }
+ 
+      if (ejecutar){
+        ejecutaComandos(argumentos, nargs, &sigue, redireccion, fout);
       }
-      contador++;
-    } // Fin bucle de tokenizacion
 
-    if (indiceRedireccion==(contador-1) && !redireccion){
-      mensajeDeError();
-      ejecutar=false;
-    }
-    
-    if ((argumentos[nargs+1]=(char*)malloc(sizeof(char)*8))==NULL){
-      mensajeDeError();
-      exit(1);
-    }
+      if (redireccion){ // Si hay redireccion cierro archivo de salida
+        fclose(fout);
+        redireccion=false;
+      }
 
-    nargs--;
+      // Libero memoria dinamica
+      for (int i=0; i<(nargs); i++){
+        free(argumentos[i]);
+      }
 
-    // COMANDOS BUILT-IN
-    if (ejecutar){
-      ejecutaComandos(argumentos, nargs, &sigue, redireccion, fout, linea);
-    }
-    if (redireccion){
-      fclose(fout);
-    }
-    liberaMemoriaDinamica(argumentos, linea,nargs);
-    
+      // Reseteo las variables
+      nargs=0;
+      contador=0;
+      ejecutar=true;
+      indiceRedireccion=-2;
+
+    } // Bucle de cada token para comandos paralelos
+
+    free(argumentos);
+    free(linea);
+ 
   } // Fin del bucle de sigue del programa principal
+  
   exit(0);
 }
 
@@ -138,7 +147,9 @@ void mensajeDeError(){ // Imprime el mensaje de error por stderr
 }
 
 void quitarSalto(char *palabra){ // Quita el salto de linea de una palabra
-  palabra[strlen(palabra)-1]='\0';
+  if (palabra[strlen(palabra)-1]=='\n'){
+    palabra[strlen(palabra)-1]='\0';
+  }
 }
 
 void formateaLinea(char *linea){ // Cuenta los argumentos que se introducen al programa
@@ -181,7 +192,7 @@ void borraEspaciosExtra(char *cadena) {
   cadena[j] = '\0';
 }
 
-void ejecutaComandos(char **argumentos, int nargs, bool *sigue, bool redireccion,FILE *fout, char *linea){
+void ejecutaComandos(char **argumentos, int nargs, bool *sigue, bool redireccion,FILE *fout){
   int pid, estado;
   if (strcmp(argumentos[0], "exit")==0){
     if (nargs==0){
@@ -213,7 +224,14 @@ void ejecutaComandos(char **argumentos, int nargs, bool *sigue, bool redireccion
           exit(1);
         }
       }
+
+      if ((argumentos[nargs+1]=(char*)malloc(sizeof(char)*8))==NULL){ // Para almacenar el NULL necesario para el execvp
+        mensajeDeError();
+        exit(1);
+      }
+
       argumentos[nargs+1]=NULL; // Execvp necesita que la ultima posicion sea NULL
+      
       if((estado=execvp(argumentos[0], argumentos))==-1){
         mensajeDeError();
         exit(1);
@@ -226,10 +244,16 @@ void ejecutaComandos(char **argumentos, int nargs, bool *sigue, bool redireccion
   }
 }
 
-void liberaMemoriaDinamica(char **argumentos, char *linea, int nargs){
-  for (int i=0; i<(nargs); i++){
-    free(argumentos[i]);
+void compruebaComandoParalelo(char *cadena, bool *ejecutar){
+  int contador=0, i=0;
+  while(cadena[i]!='\0'){
+    if (cadena[i]=='&'){
+      contador++;
+    }
+    i++;
   }
-  free(argumentos);
-  free(linea); 
+  if (contador==(strlen(cadena)-1)){
+    mensajeDeError();
+  }
+  *ejecutar=false;
 }
