@@ -75,19 +75,26 @@ int main (int argc, char *argv[]){
     // Tokenizo los argumentos del comando
     while((token=strsep(&linea," "))!=NULL){
       if (strcmp(token,redirec)!=0){ // Si no es el simbolo de redireccion
-        if (contador==(indiceRedireccion+1)){
+        if (contador==(indiceRedireccion+1)){ // Si es el fichero de salida
           if ((fout=fopen(token, "w"))==NULL){
             mensajeDeError();
           }  
+          redireccion=true;
         }
         else {
-          // Reservo memoria dinamica para cada posicion
-          if ((argumentos[nargs]=(char*)malloc(sizeof(char)*strlen(token)))==NULL){
+          if (redireccion){ // Si hay mas de un fichero de redireccion
             mensajeDeError();
-            exit(1);
+            ejecutar=false;
           }
-          strcpy(argumentos[nargs],token);
-          nargs++;
+          else {
+            // Reservo memoria dinamica para cada posicion
+            if ((argumentos[nargs]=(char*)malloc(sizeof(char)*strlen(token)))==NULL){
+              mensajeDeError();
+              exit(1);
+            }
+            strcpy(argumentos[nargs],token);
+            nargs++;
+          }
         }
       }
       else { // Si es el simbolo de redireccion o el fichero
@@ -96,10 +103,14 @@ int main (int argc, char *argv[]){
           mensajeDeError();
           ejecutar=false;
         }
-        redireccion=true;
       }
       contador++;
     } // Fin bucle de tokenizacion
+
+    if (indiceRedireccion==(contador-1) && !redireccion){
+      mensajeDeError();
+      ejecutar=false;
+    }
     
     if ((argumentos[nargs+1]=(char*)malloc(sizeof(char)*8))==NULL){
       mensajeDeError();
