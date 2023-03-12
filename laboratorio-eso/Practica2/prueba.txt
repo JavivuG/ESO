@@ -1,5 +1,5 @@
 ls -al
-cd /home/javivu/
+cd                          /home/javivu/
 ls -l
 cd /home/javivu/Descargas/
 ls -al
