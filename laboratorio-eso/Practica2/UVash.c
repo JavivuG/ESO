@@ -15,12 +15,11 @@ void quitarSalto(char *palabra);
 void formateaLinea(char *linea);
 void borraEspaciosExtra(char *cadena);
 void ejecutaComandos(char **argumentos, int nargs, bool *sigue, bool redireccion, FILE *fout);
-void compruebaComandoParalelo(char *cadena, bool *ejecutar);
+void tokenizaArgumentos(char *tokenParalelo, char **argumentos, int *nargs, int *indiceRedireccion,bool*redireccion, bool *ejecutar, FILE **fout);
 
 int main (int argc, char *argv[]){
-  int contador=0, nargs=0, indiceRedireccion=-2;
-  char *linea, *token, *tokenParalelo;
-  char redirec[]=">";
+  int nargs=0, indiceRedireccion=-2;
+  char *linea, *tokenParalelo;
   char **argumentos;
   size_t size;
   bool modoBatch=false, sigue=true, redireccion=false, ejecutar=true;
@@ -65,59 +64,23 @@ int main (int argc, char *argv[]){
       mensajeDeError();
       exit(1);
     } 
-    
+  
     while((tokenParalelo=strsep(&linea,"&"))!=NULL){
       formateaLinea(tokenParalelo);
-      
-        // Tokenizo los argumentos del comando
-      while((token=strsep(&tokenParalelo," "))!=NULL){
-        if (strcmp(token,redirec)!=0){ // Si no es el simbolo de redireccion
-          if (contador==(indiceRedireccion+1)){ // Si es el fichero de salida
-            if ((fout=fopen(token, "w"))==NULL){
-              mensajeDeError();
-            }  
-            redireccion=true;
-          }
-          else {
-            if (redireccion){ // Si hay mas de un fichero de redireccion
-              mensajeDeError();
-              ejecutar=false;
-            }
-            else {
-              // Reservo memoria dinamica para cada posicion
-              if ((argumentos[nargs]=(char*)malloc(sizeof(char)*strlen(token)))==NULL){
-                mensajeDeError();
-                exit(1);
-              }
-              strcpy(argumentos[nargs],token);
-              nargs++;
-            }
-          }
-        }
-        else { // Si es el simbolo de redireccion o el fichero
-          indiceRedireccion=contador;
-          if (redireccion || contador==0){
-            mensajeDeError();
-            ejecutar=false;
-          }
-        }
-        contador++;
-      } // Fin bucle de tokenizacion
 
-      nargs--;
-
-      if (indiceRedireccion==(contador-1) && !redireccion){  // Si hay redireccion pero no se ha especificado archivo
-        mensajeDeError();
+      if (strcmp(tokenParalelo,"\0")==0){
         ejecutar=false;
       }
  
+      // Tokenizo los argumentos del comando
+      tokenizaArgumentos(tokenParalelo, argumentos, &nargs, &indiceRedireccion, &redireccion, &ejecutar, &fout);
+
       if (ejecutar){
         ejecutaComandos(argumentos, nargs, &sigue, redireccion, fout);
-      }
 
-      if (redireccion){ // Si hay redireccion cierro archivo de salida
-        fclose(fout);
-        redireccion=false;
+        if (redireccion){ // Si hay redireccion cierro archivo de salida
+          fclose(fout);
+        }
       }
 
       // Libero memoria dinamica
@@ -127,9 +90,9 @@ int main (int argc, char *argv[]){
 
       // Reseteo las variables
       nargs=0;
-      contador=0;
       ejecutar=true;
       indiceRedireccion=-2;
+      redireccion=false;
 
     } // Bucle de cada token para comandos paralelos
 
@@ -243,16 +206,52 @@ void ejecutaComandos(char **argumentos, int nargs, bool *sigue, bool redireccion
   }
 }
 
-void compruebaComandoParalelo(char *cadena, bool *ejecutar){
-  int contador=0, i=0;
-  while(cadena[i]!='\0'){
-    if (cadena[i]=='&'){
-      contador++;
+// Funcion que tokeniza los comandos y los mete en el array de strings argumentos detectando si hay o no redireccion
+void tokenizaArgumentos(char *tokenParalelo, char **argumentos, int *nargs, int *indiceRedireccion,bool*redireccion, bool *ejecutar, FILE **fout){
+  char redirec[]=">";
+  char *token;
+  int contador=0;
+
+  // tokeniza los argumentos
+  while((token=strsep(&tokenParalelo," "))!=NULL){
+    if (strcmp(token,redirec)!=0){ // Si no es el simbolo de redireccion
+      if (contador==(*indiceRedireccion+1)){ // Si es el fichero de salida
+        if ((*fout=fopen(token, "w"))==NULL){
+          mensajeDeError();
+        }  
+        *redireccion=true;
+      }
+      else {
+        if (*redireccion){ // Si hay mas de un fichero de redireccion
+          mensajeDeError();
+          *ejecutar=false;
+        }
+        else {
+          // Reservo memoria dinamica para cada posicion
+          if ((argumentos[*nargs]=(char*)malloc(sizeof(char)*strlen(token)))==NULL){
+            mensajeDeError();
+            exit(1);
+          }
+          strcpy(argumentos[*nargs],token);
+          (*nargs)++;
+        }
+      }
     }
-    i++;
-  }
-  if (contador==(strlen(cadena)-1)){
+    else { // Si es el simbolo de redireccion o el fichero
+      *indiceRedireccion=contador;
+      if (*redireccion || contador==0){
+        mensajeDeError();
+        *ejecutar=false;
+      }
+    }
+    contador++;
+  } // Fin bucle de tokenizacion
+
+  (*nargs)--;
+
+  if (*indiceRedireccion==(contador-1) && !(*redireccion)){  // Si hay redireccion pero no se ha especificado archivo
     mensajeDeError();
+    *ejecutar=false;
   }
-  *ejecutar=false;
+
 }
