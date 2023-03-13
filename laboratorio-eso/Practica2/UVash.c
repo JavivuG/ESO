@@ -133,8 +133,7 @@ int main (int argc, char *argv[]){
 
     } // Bucle de cada token para comandos paralelos
 
-    int status=0;
-    while((wait(&status))>0);
+    while((wait(NULL))>0); // Espera a que acaben de ejecutarse todos los comandos
 
     free(argumentos);
     free(linea);
