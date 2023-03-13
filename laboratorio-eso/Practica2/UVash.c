@@ -22,13 +22,13 @@ int main (int argc, char *argv[]){
   char *linea, *tokenParalelo;
   char **argumentos;
   size_t size;
-  bool modoBatch=false, sigue=true, redireccion=false, ejecutar=true;
+  bool modoBatch=false, sigue=true, redireccion=false, ejecutar=true, ejecutarLinea=true;
   FILE *fin; // Fichero de entrada modo interactivo
-  FILE *fout; // Fichero de salida si hay redirreccion
+  FILE *fout; // Fichero de salida en redirreccion
 
   if (argc==2){
     modoBatch=true;
-    if ((fin=fopen(argv[1], "r"))==NULL){
+    if ((fin=fopen(argv[1], "r"))==NULL){ // Si se da un fichero batch incorrecto
       mensajeDeError();
       exit(1);
     }
@@ -55,56 +55,67 @@ int main (int argc, char *argv[]){
 
     formateaLinea(linea);
 
-    if (strcmp(linea,"")==0){ // Si introduce una cadena de solo espacios
-      ejecutar=false;
-    }
-
     // Reservo memoria para los argumentos y el comando
     if ((argumentos=(char**)malloc(sizeof(char*)*MAXARGS))==NULL){
       mensajeDeError();
       exit(1);
     } 
   
-    while((tokenParalelo=strsep(&linea,"&"))!=NULL){
-      formateaLinea(tokenParalelo);
+    if (strcmp(linea,"&")==0){
+      mensajeDeError();
+      ejecutarLinea=false;
+    }
 
-      if (strcmp(tokenParalelo,"\0")==0){
-        ejecutar=false;
-      }
- 
-      // Tokenizo los argumentos del comando
-      tokenizaArgumentos(tokenParalelo, argumentos, &nargs, &indiceRedireccion, &redireccion, &ejecutar, &fout);
+    if (strcmp(linea,"")==0){ // Si introduce una cadena de solo espacios
+      ejecutar=false;
+    }
 
-      if (ejecutar){
-        ejecutaComandos(argumentos, nargs, &sigue, redireccion, fout);
+    if (ejecutarLinea){
+      while((tokenParalelo=strsep(&linea,"&"))!=NULL){
+        formateaLinea(tokenParalelo);
 
-        if (redireccion){ // Si hay redireccion cierro archivo de salida
-          fclose(fout);
+        if (strcmp(tokenParalelo,"\0")==0){
+          ejecutar=false;
         }
-      }
+   
+        // Tokenizo los argumentos del comando
+        tokenizaArgumentos(tokenParalelo, argumentos, &nargs, &indiceRedireccion, &redireccion, &ejecutar, &fout);
 
-      // Libero memoria dinamica
-      for (int i=0; i<(nargs); i++){
-        free(argumentos[i]);
-      }
+        if (ejecutar){
+          ejecutaComandos(argumentos, nargs, &sigue, redireccion, fout);
 
-      // Reseteo las variables
-      nargs=0;
-      ejecutar=true;
-      indiceRedireccion=-2;
-      redireccion=false;
+          if (redireccion){ // Si hay redireccion cierro archivo de salida
+            fclose(fout);
+          }
+        }
 
-    } // Bucle de cada token para comandos paralelos
+        // Libero memoria dinamica
+        for (int i=0; i<(nargs); i++){
+          free(argumentos[i]);
+        }
 
-    while((wait(NULL))>0); // Espera a que acaben de ejecutarse todos los comandos
+        // Reseteo las variables
+        nargs=0;
+        ejecutar=true;
+        indiceRedireccion=-2;
+        redireccion=false;
 
+      } // Bucle de cada token para comandos paralelos
+
+      while((wait(NULL))>0); // Espera a que acaben de ejecutarse todos los comandos
+    }
+    else {
+      ejecutarLinea=true;
+    }
+
+    
     free(argumentos);
     free(linea);
  
   } // Fin del bucle de sigue del programa principal
   
   exit(0);
-}
+} // Fin del main
 
 void mensajeDeError(){ // Imprime el mensaje de error por stderr
   char error_message[30] = "An error has occurred\n";
@@ -117,50 +128,58 @@ void quitarSalto(char *palabra){ // Quita el salto de linea de una palabra
   }
 }
 
-void formateaLinea(char *linea){ // Cuenta los argumentos que se introducen al programa
-  quitarSalto(linea);
-  borraEspaciosExtra(linea);
-}
-
 void borraEspaciosExtra(char *cadena) {
   int i, j;
   int tam = strlen(cadena);
   int espacioEncontrado = 0;
 
   // Eliminar espacios al principio de la cadena
-  while (cadena[0] == ' ') {
+  while (cadena[0] == ' ' || cadena[0]=='\t') {
     for (i = 0; i < tam; i++) {
-        cadena[i] = cadena[i+1];
+      cadena[i] = cadena[i+1];
     }
     tam--;
   }
   
   // Eliminar espacios extra en el resto de la cadena
   for (i = 0, j = 0; i < tam; i++) {
-      if (cadena[i] == ' ') {
-          if (!espacioEncontrado) {
-              cadena[j] = ' ';
-              j++;
-              espacioEncontrado = 1;
-          }
-      } else {
-          cadena[j] = cadena[i];
-          j++;
-          espacioEncontrado = 0;
+      if (cadena[i] == ' '){
+        if (!espacioEncontrado) {
+            cadena[j] = ' ';
+            j++;
+            espacioEncontrado = 1;
+        }
+      }
+      else if(cadena[i]=='\t'){
+        if (!espacioEncontrado) {
+            cadena[j] = '\t';
+            j++;
+            espacioEncontrado = 1;
+        }
+      }
+      else {
+        cadena[j] = cadena[i];
+        j++;
+        espacioEncontrado = 0;
       }
   }
   
   // Elimina espacios extra al final de la cadena
-  while (j > 0 && cadena[j-1] == ' ') {
+  while (j > 0 && (cadena[j-1] == ' ' || cadena[j-1] == '\t')) {
     j--;
   }
   cadena[j] = '\0';
 }
 
+void formateaLinea(char *linea){ // Cuenta los argumentos que se introducen al programa
+  quitarSalto(linea);
+  borraEspaciosExtra(linea);
+}
+
 void ejecutaComandos(char **argumentos, int nargs, bool *sigue, bool redireccion,FILE *fout){
   int pid, estado;
   if (strcmp(argumentos[0], "exit")==0){
-    if (nargs==0){
+    if (nargs==0){ // Para que salga del programa
       *sigue=false;
     }
     else{ // Si tiene 1 o mas argumentos error
@@ -183,25 +202,17 @@ void ejecutaComandos(char **argumentos, int nargs, bool *sigue, bool redireccion
       mensajeDeError();
     }
     else if (pid==0) { // PROCESO HIJO
-      if (redireccion){
+      if (redireccion){ // Si hay redireccion entonces cambio la salida al fichero de redireccion
         if (dup2(fileno(fout), 1)==-1 || dup2(fileno(fout), 2)==-1){
           mensajeDeError();
           exit(1);
         }
       }
-
-      if ((argumentos[nargs+1]=(char*)malloc(sizeof(char)*8))==NULL){ // Para almacenar el NULL necesario para el execvp
+ 
+      if((estado=execvp(argumentos[0], argumentos))==-1){ // Ejecuto el comando deseado
         mensajeDeError();
         exit(1);
       }
-
-      argumentos[nargs+1]=NULL; // Execvp necesita que la ultima posicion sea NULL
-      
-      if((estado=execvp(argumentos[0], argumentos))==-1){
-        mensajeDeError();
-        exit(1);
-      }
-
     } // Fin del proceso hijo
   }
 }
