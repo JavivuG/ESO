@@ -133,6 +133,9 @@ int main (int argc, char *argv[]){
 
     } // Bucle de cada token para comandos paralelos
 
+    int status=0;
+    while((wait(&status))>0);
+
     free(argumentos);
     free(linea);
  
@@ -238,9 +241,6 @@ void ejecutaComandos(char **argumentos, int nargs, bool *sigue, bool redireccion
       }
 
     } // Fin del proceso hijo
-    else { // PROCESO PADRE
-      wait(NULL);  
-    }
   }
 }
 
