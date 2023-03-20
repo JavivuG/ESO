@@ -1,5 +1,6 @@
 // TRABAJO REALIZADO POR:
 // GARCÍA GONZÁLEZ, JAVIER
+// UVash.c
 #include <stdlib.h>
 #include <stdio.h>
 #include <stdbool.h>
@@ -41,7 +42,7 @@ int main (int argc, char *argv[]){
   while(sigue){
     if (modoBatch){ // Cuando esta en modo batch
       getline(&linea, &size, fin);
-      if (feof(fin)) {
+      if (feof(fin)) { // Fin del archivo
         free(linea);
         fclose(fin);
         exit(0);
@@ -53,7 +54,7 @@ int main (int argc, char *argv[]){
       getline(&linea, &size, stdin);
     }
 
-    formateaLinea(linea);
+    formateaLinea(linea); // Quito salto de linea y espacios extra
 
     // Reservo memoria para los argumentos y el comando
     if ((argumentos=(char**)malloc(sizeof(char*)*MAXARGS))==NULL){
@@ -61,7 +62,7 @@ int main (int argc, char *argv[]){
       exit(1);
     } 
   
-    if (strcmp(linea,"&")==0){
+    if (strcmp(linea,"&")==0){ // Si la linea solo es "&" entonces es erroneo
       mensajeDeError();
       ejecutarLinea=false;
     }
@@ -71,17 +72,20 @@ int main (int argc, char *argv[]){
     }
 
     if (ejecutarLinea){
-      while((tokenParalelo=strsep(&linea,"&"))!=NULL){
-        formateaLinea(tokenParalelo);
+      while((tokenParalelo=strsep(&linea,"&"))!=NULL){ // Separo por "&" para ejecutar los comandos paralelos
+        formateaLinea(tokenParalelo); // Quito espacios extra
 
-        if (strcmp(tokenParalelo,"\0")==0){
+        if (strcmp(tokenParalelo,"\0")==0){ // Si la cadena esta vacia no ejecuto ningun comando
           ejecutar=false;
         }
    
         // Tokenizo los argumentos del comando
-        tokenizaArgumentos(tokenParalelo, argumentos, &nargs, &indiceRedireccion, &redireccion, &ejecutar, &fout);
+        // Ademas de tokenizar tambien se guardan los argumentos y el programa en un array de strings y detecto redireccion 
+        tokenizaArgumentos(tokenParalelo, argumentos, &nargs, &indiceRedireccion, &redireccion, &ejecutar, &fout); 
+        
 
         if (ejecutar){
+          // Ejecuto el comando ya sea un BUILT-IN o del resto
           ejecutaComandos(argumentos, nargs, &sigue, redireccion, fout);
 
           if (redireccion){ // Si hay redireccion cierro archivo de salida
@@ -90,14 +94,14 @@ int main (int argc, char *argv[]){
         }
 
         // Libero memoria dinamica
-        for (int i=0; i<(nargs); i++){
+        for (int i=0; i<(nargs+1); i++){
           free(argumentos[i]);
         }
 
         // Reseteo las variables
         nargs=0;
         ejecutar=true;
-        indiceRedireccion=-2;
+        indiceRedireccion=-2; // Es -2 para que cuando no haya redireccion no haya problema al comparar con el contador
         redireccion=false;
 
       } // Bucle de cada token para comandos paralelos
@@ -108,7 +112,7 @@ int main (int argc, char *argv[]){
       ejecutarLinea=true;
     }
 
-    
+    // Libero memoria dinamica 
     free(argumentos);
     free(linea);
  
@@ -128,10 +132,10 @@ void quitarSalto(char *palabra){ // Quita el salto de linea de una palabra
   }
 }
 
-void borraEspaciosExtra(char *cadena) {
+void borraEspaciosExtra(char *cadena) { // Tambien borra los tabuladores '\t'
   int i, j;
   int tam = strlen(cadena);
-  int espacioEncontrado = 0;
+  bool espacioEncontrado = true;
 
   // Eliminar espacios al principio de la cadena
   while (cadena[0] == ' ' || cadena[0]=='\t') {
@@ -141,26 +145,26 @@ void borraEspaciosExtra(char *cadena) {
     tam--;
   }
   
-  // Eliminar espacios extra en el resto de la cadena
+  // Eliminar espacios extra en el resto de la cadena dejando un unico espacio
   for (i = 0, j = 0; i < tam; i++) {
       if (cadena[i] == ' '){
         if (!espacioEncontrado) {
             cadena[j] = ' ';
             j++;
-            espacioEncontrado = 1;
+            espacioEncontrado = true;
         }
       }
       else if(cadena[i]=='\t'){
         if (!espacioEncontrado) {
             cadena[j] = '\t';
             j++;
-            espacioEncontrado = 1;
+            espacioEncontrado = true;
         }
       }
       else {
         cadena[j] = cadena[i];
         j++;
-        espacioEncontrado = 0;
+        espacioEncontrado = false;
       }
   }
   
@@ -178,6 +182,8 @@ void formateaLinea(char *linea){ // Cuenta los argumentos que se introducen al p
 
 void ejecutaComandos(char **argumentos, int nargs, bool *sigue, bool redireccion,FILE *fout){
   int pid, estado;
+
+  // Comandos BUILT-IN
   if (strcmp(argumentos[0], "exit")==0){
     if (nargs==0){ // Para que salga del programa
       *sigue=false;
@@ -187,24 +193,25 @@ void ejecutaComandos(char **argumentos, int nargs, bool *sigue, bool redireccion
     }
   }
   else if (strcmp(argumentos[0], "cd")==0) {
-    if (nargs==0 || nargs>1) { // Si tiene 0 o mas de 1 argumento
+    if (nargs==0 || nargs>1) { // Si tiene 0 o mas de 1 argumento error
       mensajeDeError();
     }
     else {
-      if(chdir(argumentos[1])==-1){ // Si ha surgido un error en la llamada a chdir
-        mensajeDeError();
+      if(chdir(argumentos[1])==-1){ // Cambio al directorio indicado
+        mensajeDeError(); // Si ha surgido un error en la llamada a chdir
       }
     }
   }
   else { // Si no es ningun metodo BUILT-IN 
     pid = fork();
+
     if (pid==-1){ // Error al crear proceso hijo
       mensajeDeError();
     }
     else if (pid==0) { // PROCESO HIJO
       if (redireccion){ // Si hay redireccion entonces cambio la salida al fichero de redireccion
-        if (dup2(fileno(fout), 1)==-1 || dup2(fileno(fout), 2)==-1){
-          mensajeDeError();
+        if (dup2(fileno(fout), 1)==-1 || dup2(fileno(fout), 2)==-1){ // Cambio la salida y la salida de error predeterminada
+          mensajeDeError(); // Si hay error cambiando salidas lanzo mensaje
           exit(1);
         }
       }
@@ -225,15 +232,15 @@ void tokenizaArgumentos(char *tokenParalelo, char **argumentos, int *nargs, int 
 
   // tokeniza los argumentos
   while((token=strsep(&tokenParalelo," "))!=NULL){
-    if (strcmp(token,redirec)!=0){ // Si no es el simbolo de redireccion
+    if (strcmp(token,redirec)!=0){ // Si no es el simbolo de redireccion '>'
       if (contador==(*indiceRedireccion+1)){ // Si es el fichero de salida
-        if ((*fout=fopen(token, "w"))==NULL){
+        if ((*fout=fopen(token, "w"))==NULL){ // Abro el fichero de la redireccion
           mensajeDeError();
         }  
         *redireccion=true;
       }
       else {
-        if (*redireccion){ // Si hay mas de un fichero de redireccion
+        if (*redireccion){ // Si hay mas de un fichero de redireccion error
           mensajeDeError();
           *ejecutar=false;
         }
@@ -243,12 +250,12 @@ void tokenizaArgumentos(char *tokenParalelo, char **argumentos, int *nargs, int 
             mensajeDeError();
             exit(1);
           }
-          strcpy(argumentos[*nargs],token);
-          (*nargs)++;
+          strcpy(argumentos[*nargs],token); // Si no es el '>' ni el fichero de redireccion entonces es un argumento y lo guardo
+          (*nargs)++; // Aumento la cantidad de argumentos
         }
       }
     }
-    else { // Si es el simbolo de redireccion o el fichero
+    else { // Si es el simbolo de redireccion o el fichero '>'
       *indiceRedireccion=contador;
       if (*redireccion || contador==0){
         mensajeDeError();
@@ -258,9 +265,11 @@ void tokenizaArgumentos(char *tokenParalelo, char **argumentos, int *nargs, int 
     contador++;
   } // Fin bucle de tokenizacion
 
-  (*nargs)--;
+  // nargs indica el numero de argumentos, es decir si se introduce "ls" nargs sera 0
+  // Si se introduce "ls -al" entonces nargs sera 1
+  (*nargs)--; 
 
-  if (*indiceRedireccion==(contador-1) && !(*redireccion)){  // Si hay redireccion pero no se ha especificado archivo
+  if (*indiceRedireccion==(contador-1) && !(*redireccion)){  // Si hay redireccion pero no se ha especificado archivo error
     mensajeDeError();
     *ejecutar=false;
   }
