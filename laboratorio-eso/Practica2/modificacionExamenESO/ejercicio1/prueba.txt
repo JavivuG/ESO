@@ -1,0 +1,8 @@
+ls -l
+PACK
+ls -l /tmp
+ls
+PACK
+ls /
+cd /home/javivu/Descargas/
+exit

@@ -215,6 +215,11 @@ void ejecutaComandos(char **argumentos, int nargs, bool *sigue, bool redireccion
           exit(1);
         }
       }
+
+      if ((argumentos[nargs+1]=(char*)malloc(sizeof(char)*8))==NULL){
+        mensajeDeError();
+      }
+      argumentos[nargs+1]=NULL;
  
       if((estado=execvp(argumentos[0], argumentos))==-1){ // Ejecuto el comando deseado
         mensajeDeError();
