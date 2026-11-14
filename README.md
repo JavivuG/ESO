@@ -14,17 +14,11 @@
 
 </div>
 
-```mermaid
-flowchart LR
-    A["Línea leída<br/>(prompt o fichero batch)"] --> B["strsep por &<br/>comandos paralelos"]
-    B --> C["strsep por espacios<br/>argumentos"]
-    C --> D{"¿exit o cd?<br/>(por cada comando)"}
-    D -- sí --> E["Se resuelve en el propio shell<br/>(exit / chdir)"]
-    D -- no --> F["fork()"]
-    F --> G["Hijo: dup2 a fichero<br/>si hay >"]
-    G --> H["execvp(comando)"]
-    B -- "tras lanzar todos" --> I["Padre: while (wait(NULL) > 0)<br/>espera a todos los hijos"]
-```
+<p align="center">
+  <img src="docs/screenshots/uvash.png" width="516" alt="Sesión de UVash en modo interactivo: ls, UVacat, UVagrep con redirección a fichero, tres comandos en paralelo con & y el mensaje de error ante una redirección sin fichero">
+  <br>
+  <sub>Salida real del programa.</sub>
+</p>
 
 ## En pocas palabras
 
@@ -61,6 +55,20 @@ flowchart LR
 | Deberes (`homework/`) | Simuladores en Python del libro OSTEP sobre memoria: reubicación, segmentación, paginación lineal y multinivel, y `malloc`. |
 
 Los enunciados, en inglés, están en el `README.md` de cada práctica. Proceden de los proyectos OSTEP de la Universidad de Wisconsin-Madison, adaptados para la asignatura.
+
+## Arquitectura de UVash
+
+```mermaid
+flowchart LR
+    A["Línea leída<br/>(prompt o fichero batch)"] --> B["strsep por &<br/>comandos paralelos"]
+    B --> C["strsep por espacios<br/>argumentos"]
+    C --> D{"¿exit o cd?<br/>(por cada comando)"}
+    D -- sí --> E["Se resuelve en el propio shell<br/>(exit / chdir)"]
+    D -- no --> F["fork()"]
+    F --> G["Hijo: dup2 a fichero<br/>si hay >"]
+    G --> H["execvp(comando)"]
+    B -- "tras lanzar todos" --> I["Padre: while (wait(NULL) > 0)<br/>espera a todos los hijos"]
+```
 
 ## Estructura del repositorio
 
