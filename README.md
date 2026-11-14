@@ -1,34 +1,66 @@
-# ESO: UVash y utilidades de Linux en C
+<div align="center">
 
-Un shell de Unix (`UVash`) y versiones propias de `cat`, `grep`, `zip` y `unzip`, escritos en C sobre llamadas al sistema POSIX.
+# UVash: un shell de Unix escrito en C
 
-Asignatura **Estructura de Sistemas Operativos**, 2.º curso, 2.º cuatrimestre, curso 2022-2023. Grado en Ingeniería Informática, Universidad de Valladolid.
+**Intérprete de comandos con ejecución en paralelo y redirección, construido sobre `fork`, `execvp`, `wait` y `dup2`, más versiones propias de `cat`, `grep`, `zip` y `unzip`**
 
-## Qué hace
+![C](https://img.shields.io/badge/C-00599C?style=for-the-badge&logo=c&logoColor=white)
+![Linux](https://img.shields.io/badge/Linux-FCC624?style=for-the-badge&logo=linux&logoColor=black)
+![POSIX](https://img.shields.io/badge/POSIX-555555?style=for-the-badge)
+![Bash](https://img.shields.io/badge/Bash-4EAA25?style=for-the-badge&logo=gnubash&logoColor=white)
+![Python](https://img.shields.io/badge/Python-3776AB?style=for-the-badge&logo=python&logoColor=white)
+
+<sub>Estructura de Sistemas Operativos · Grado en Ingeniería Informática · Universidad de Valladolid · Curso 2022-2023</sub>
+
+</div>
+
+```mermaid
+flowchart LR
+    A["Línea leída<br/>(prompt o fichero batch)"] --> B["strsep por &<br/>comandos paralelos"]
+    B --> C["strsep por espacios<br/>argumentos"]
+    C --> D{"¿exit o cd?<br/>(por cada comando)"}
+    D -- sí --> E["Se resuelve en el propio shell<br/>(exit / chdir)"]
+    D -- no --> F["fork()"]
+    F --> G["Hijo: dup2 a fichero<br/>si hay >"]
+    G --> H["execvp(comando)"]
+    B -- "tras lanzar todos" --> I["Padre: while (wait(NULL) > 0)<br/>espera a todos los hijos"]
+```
+
+## En pocas palabras
+
+- **Reto**: escribir un shell de Unix y utilidades clásicas en C usando directamente las llamadas al sistema, sin bibliotecas que oculten la gestión de procesos.
+- **Solución**: `UVash`, con modo interactivo y modo batch, comandos internos `exit` y `cd`, redirección con `>` y ejecución en paralelo con `&`; además `UVacat`, `UVagrep` y un compresor RLE (`UVazip` / `UVaunzip`).
+- **Demuestra**: programación de sistemas en C, gestión de procesos POSIX, redirección de descriptores, análisis robusto de la entrada y trabajo guiado por baterías de pruebas.
+
+## Lo más destacado
+
+- **UVash pasa 22/22 pruebas** de la batería de OSTEP y **UVacat 7/7** (compilados con gcc en Linux/WSL sobre una copia del repositorio).
+- **Ejecución en paralelo real**: cada comando separado por `&` se lanza con `fork` + `execvp` y el shell espera a todos con `while (wait(NULL) > 0)`, así que corren a la vez y no uno tras otro.
+- **Redirección con `dup2`**: el hijo redirige la salida estándar y la de error al fichero indicado tras `>`; antes, el shell rechaza las redirecciones mal formadas (sin fichero o con varios).
+- **Comandos internos sin `fork`**: `exit` y `cd` se resuelven en el propio proceso, porque un hijo no puede cambiar el directorio de trabajo de su padre.
+- **Análisis de la línea con casos límite**: espacios y tabuladores sobrantes se normalizan, y una línea con solo `&` o solo espacios produce un único mensaje de error por `stderr`.
+- **Formato binario propio**: `UVazip` escribe cada tramo como un entero de 4 bytes seguido del carácter (`fwrite`), el formato que lee `UVaunzip`.
+
+## Competencias
+
+| Área | Qué se aplicó |
+| --- | --- |
+| Programación de sistemas | C sobre la API POSIX: `fork`, `execvp`, `wait`, `dup2`, `chdir`, `opendir`/`readdir` |
+| Procesos y concurrencia | Lanzamiento de varios hijos en paralelo y espera de todos ellos |
+| E/S y ficheros | Redirección de descriptores, E/S binaria con `fwrite`/`fread` |
+| Pruebas | Baterías automáticas con el *tester* de OSTEP (`test-*.sh`) |
+| Memoria virtual | Simuladores OSTEP de reubicación, segmentación, paginación y `malloc` (Python) |
+
+## Qué contiene
 
 | Práctica | Contenido |
 | --- | --- |
 | Práctica 1: utilidades Unix | `UVacat`, `UVagrep`, `UVazip` y `UVaunzip`: versiones simplificadas de `cat`, `grep` y de un compresor RLE con su descompresor. |
-| Práctica 2: shell `UVash` | Intérprete de comandos con modo interactivo (prompt `UVash> `) y modo batch (lee órdenes de un fichero), comandos internos `exit` y `cd`, redirección de salida con `>` y ejecución en paralelo con `&`. |
+| Práctica 2: shell `UVash` | Intérprete con modo interactivo (prompt `UVash> `) y modo batch (lee órdenes de un fichero), comandos internos `exit` y `cd`, redirección de salida con `>` y ejecución en paralelo con `&`. |
 | Examen de laboratorio (22/03/2023) | Ampliación de `UVash` con un comando interno `PACK` (ejercicio 1) y `UVafind`, un buscador de ficheros por nombre en el directorio actual con la opción `--name` (ejercicio 2). |
 | Deberes (`homework/`) | Simuladores en Python del libro OSTEP sobre memoria: reubicación, segmentación, paginación lineal y multinivel, y `malloc`. |
 
 Los enunciados, en inglés, están en el `README.md` de cada práctica. Proceden de los proyectos OSTEP de la Universidad de Wisconsin-Madison, adaptados para la asignatura.
-
-## Tecnologías
-
-- C (gcc, Linux)
-- API POSIX: `fork`, `execvp`, `wait`, `dup2`, `chdir`, `opendir`/`readdir`
-- Bash y el *tester* de OSTEP para las baterías de pruebas
-- Python para los simuladores de `homework/`
-
-## Lo que aprendí / Aspectos técnicos destacados
-
-- **Creación y espera de procesos**: cada comando externo se lanza con `fork` + `execvp`. El shell espera a todos los hijos con `while (wait(NULL) > 0)`, así que los comandos separados por `&` se ejecutan a la vez y no uno tras otro.
-- **Redirección con `dup2`**: el proceso hijo redirige la salida estándar y la de error al fichero indicado tras `>`. Antes, el shell rechaza las redirecciones mal formadas, como la que no indica fichero o la que indica varios.
-- **Análisis de la línea**: primero se separan con `strsep` los comandos paralelos (`&`) y después los argumentos. Se normalizan los espacios y tabuladores sobrantes, y los casos límite (una línea con solo `&` o solo espacios) generan un único mensaje de error por `stderr`.
-- **Comandos internos sin `fork`**: `exit` y `cd` se resuelven en el propio proceso del shell, porque un hijo no podría cambiar el directorio de trabajo de su padre.
-- **Compresión binaria**: `UVazip` escribe cada tramo como un entero de 4 bytes seguido del carácter (`fwrite`), que es el formato que espera `UVaunzip`.
 
 ## Estructura del repositorio
 
@@ -52,9 +84,12 @@ ESO/
 - Linux (o WSL) con `gcc` y `bash`.
 - Python 2 para `paging-linear-translate.py`, `paging-multilevel-translate.py` y `malloc.py`, que usan `print` como sentencia.
 
-## Cómo compilar y ejecutar
+## Cómo ejecutarlo
 
-Cada programa se compila con `gcc` y se prueba con el script `test-*.sh` de su carpeta, que ejecuta los casos de `tests/` con `../tester/run-tests.sh` (`-c` continúa tras un fallo):
+Cada programa se compila con `gcc` y se prueba con el script `test-*.sh` de su carpeta, que ejecuta los casos de `tests/` con `../tester/run-tests.sh` (`-c` continúa tras un fallo).
+
+<details>
+<summary>Compilar y probar UVash y UVacat</summary>
 
 ```sh
 cd laboratorio-eso/Practica2
@@ -70,7 +105,11 @@ gcc -o UVacat UVacat.c
 
 Para las demás utilidades, cambia el nombre (`UVagrep`, `UVazip`, `UVaunzip`).
 
-Resultado comprobado al compilar con gcc en Linux (WSL), sobre una copia del repositorio: `UVash` pasa 22/22 tests y `UVacat` 7/7; `UVagrep` pasa 5/7, `UVazip` 4/6 y `UVaunzip` 1/6.
+</details>
+
+## Estado y limitaciones
+
+Resultado de las baterías al compilar con gcc en Linux (WSL), sobre una copia del repositorio: `UVash` 22/22 y `UVacat` 7/7; `UVagrep` pasa 5/7, `UVazip` 4/6 y `UVaunzip` 1/6.
 
 ## Autoría
 
@@ -78,4 +117,4 @@ Javier García González (JavivuG).
 
 ---
 
-Parte de [UVa-Projects](https://github.com/JavivuG/UVa-Projects).
+<div align="center"><sub>Parte de <a href="https://github.com/JavivuG/UVa-Projects">UVa-Projects</a> · Javier García González</sub></div>
